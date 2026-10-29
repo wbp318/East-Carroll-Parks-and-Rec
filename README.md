@@ -9,6 +9,7 @@ Working repository for standing up a parks and recreation program in East Carrol
 | `docs/FUNDING_ROADMAP.md` | Step-by-step plan: entity setup, priority grant programs, GIS funding, 12-month calendar, sources |
 | `docs/TRAILS_PLAN.md` | Hiking, biking, levee, and rail-trail corridors ranked, with legal status of the Lake Providence rail line and trail-specific funding |
 | `docs/QGIS_PLATFORM_PLAN.md` | Plan for QGIS plugins and open-source servers that reach ArcGIS parity, and the grants that can pay for it |
+| `docs/ONE_PAGER.pdf` | One-page handout for the Police Jury meeting (built by `scripts/build_one_pager.py`) |
 | `docs/POLICE_JURY_PLAN.md` | Organizing parks and trails as a Police Jury division: juror roster and who to talk to first, the one-page pitch, and road and bridge funding the Jury can pursue alongside |
 | `docs/ARCHITECTURE.md` | Mermaid diagrams: data pipeline, build script logic, layer stack, funding map, rail decision tree, 12-month Gantt |
 | `gis/east_carroll_parks_map.pdf` | Letter-size map with legend, scale bar, and north arrow, from the saved print layout |
@@ -18,6 +19,7 @@ Working repository for standing up a parks and recreation program in East Carrol
 | `gis/data/processed/acs_2023_east_carroll.json` | Census ACS 2023 5-year population, income, and poverty for parish, tracts, block groups, and places |
 | `gis/east_carroll_overview.png` | Rendered parish map: poverty by tract, existing recreation assets, half-mile park walksheds |
 | `gis/build_project.py` | Script that downloads nothing but rebuilds everything from `gis/data/raw` |
+| `scripts/check_mermaid.py` | Validates every Mermaid block in the repo; CI runs it with `--render` via `.github/workflows/mermaid.yml` |
 
 ## GIS layers in the GeoPackage
 
