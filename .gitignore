@@ -1,0 +1,4 @@
+gis/data/raw/
+*.zip
+__pycache__/
+*.qgs~
