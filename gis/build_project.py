@@ -131,6 +131,44 @@ for f in bgs.getFeatures():
             bgs.changeAttributeValue(f.id(), bgs.fields().indexOf(k), r[k])
 bgs.commitChanges()
 
+# ---- Statewide context: all LA parishes + all LA tracts with poverty (toggle group) ----
+def acs_state(table, cols, prefix="1400000US22"):
+    out = {}
+    with open(os.path.join(RAW, f"acs_{table}.dat")) as fh:
+        hdr = fh.readline().rstrip("\n").split("|")
+        idx = [hdr.index(c) for c in cols]
+        for line in fh:
+            if not line.startswith(prefix):
+                continue
+            parts = line.rstrip("\n").split("|")
+            vals = []
+            for i in idx:
+                try:
+                    x = float(parts[i])
+                    vals.append(None if x < 0 else x)
+                except ValueError:
+                    vals.append(None)
+            out[parts[0][len("1400000US"):]] = vals
+    return out
+
+
+la_parishes = extract(shp("tl_2024_us_county"), "\"STATEFP\" = '22'", "la_parishes")
+la_tracts = save(QgsVectorLayer(shp("tl_2024_22_tract"), "t", "ogr"), "la_tracts")
+st_pov = acs_state("b17021", ["B17021_E001", "B17021_E002"])
+st_mhi = acs_state("b19013", ["B19013_E001"])
+st_pop = acs_state("b01003", ["B01003_E001"])
+la_tracts.dataProvider().addAttributes([QgsField(k, QVariant.Double) for k in ("population", "med_hh_income", "poverty_pct")])
+la_tracts.updateFields()
+la_tracts.startEditing()
+for f in la_tracts.getFeatures():
+    g = f["GEOID"]
+    pv = st_pov.get(g, [None, None])
+    vals = {"population": st_pop.get(g, [None])[0], "med_hh_income": st_mhi.get(g, [None])[0],
+            "poverty_pct": round(100 * pv[1] / pv[0], 1) if pv[0] else None}
+    for k, v in vals.items():
+        la_tracts.changeAttributeValue(f.id(), la_tracts.fields().indexOf(k), v)
+la_tracts.commitChanges()
+
 # ---- OSM recreation assets ----
 osm = json.load(open(os.path.join(RAW, "osm_rec.json")))["elements"]
 assets = QgsVectorLayer("Point?crs=EPSG:4326&field=osm_id:string&field=name:string&field=category:string&field=tag:string",
@@ -220,7 +258,7 @@ if os.path.exists(rail_src):
 
 # ---- Project + styling ----
 proj = QgsProject.instance()
-proj.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
+proj.setCrs(QgsCoordinateReferenceSystem("EPSG:4269"))
 proj.setTitle("East Carroll Parish Parks & Recreation")
 
 
@@ -235,12 +273,33 @@ def style_line(l, color, width):
 
 
 style_fill(parish, "255,255,255,0", "#000000", 0.8)
-ramp = QgsGradientColorRamp(QColor("#fee5d9"), QColor("#a50f15"))
-gr = QgsGraduatedSymbolRenderer.createRenderer(
-    tracts, "poverty_pct", 5, QgsGraduatedSymbolRenderer.Quantile,
-    QgsFillSymbol.createSimple({"outline_color": "#777777", "outline_width": "0.2"}), ramp)
-tracts.setRenderer(gr)
+POVERTY_BREAKS = [(0, 10, "#fee5d9"), (10, 20, "#fcae91"), (20, 30, "#fb6a4a"), (30, 40, "#de2d26"), (40, 100, "#a50f15")]
+
+
+def poverty_renderer():
+    ranges = []
+    for lo, hi, col in POVERTY_BREAKS:
+        sym = QgsFillSymbol.createSimple({"color": col, "outline_color": "#777777", "outline_width": "0.15"})
+        label = f"{lo}% to {hi}%" if hi < 100 else f"{lo}% and up"
+        ranges.append(QgsRendererRange(lo, hi, sym, label))
+    r = QgsGraduatedSymbolRenderer("poverty_pct", ranges)
+    r.setClassAttribute("poverty_pct")
+    return r
+
+
+tracts.setRenderer(poverty_renderer())
 tracts.setOpacity(0.7)
+la_tracts.setRenderer(poverty_renderer())
+la_tracts.setOpacity(0.7)
+style_fill(la_parishes, "255,255,255,0", "#333333", 0.5)
+ls = QgsPalLayerSettings()
+ls.fieldName = "NAME"
+ls.enabled = True
+tf = QgsTextFormat()
+tf.setSize(8)
+ls.setFormat(tf)
+la_parishes.setLabelsEnabled(True)
+la_parishes.setLabeling(QgsVectorLayerSimpleLabeling(ls))
 style_fill(gap, "255,200,0,0", "#ff9900", 1.0)
 style_fill(walk, "#3cb371", "#2e8b57", 0.4, 0.45)
 style_fill(awater, "#a6cee3", "#6baed6", 0.1)
@@ -286,12 +345,26 @@ if rail is not None:
     levee.renderer().setSymbol(QgsLineSymbol.createSimple({"color": "#8c510a", "width": "0.9"}))
     style_fill(rail_buf, "#1f78b4", "#1f78b4", 0.2, 0.15)
     extra = [rail, levee, rail_buf]
+root = proj.layerTreeRoot()
 for l in (assets, places) + tuple(trail_layers.values()) + tuple(extra) + (roads, lwater, awater, walk, gap, tracts, schools_d, bgs, parish):
-    proj.addMapLayer(l)
+    proj.addMapLayer(l, False)
+    root.addLayer(l)          # appended in order, so the first added draws on top
 for hidden in (bgs, schools_d):
-    proj.layerTreeRoot().findLayer(hidden.id()).setItemVisibilityChecked(False)
+    root.findLayer(hidden.id()).setItemVisibilityChecked(False)
+la_group = root.addGroup("Louisiana statewide (toggle)")
+for l in (la_parishes, la_tracts):
+    proj.addMapLayer(l, False)
+    la_group.addLayer(l)
+la_group.setItemVisibilityChecked(False)
 osm_l = QgsRasterLayer("type=xyz&url=https://tile.openstreetmap.org/{z}/{x}/{y}.png&zmax=19&zmin=0", "OpenStreetMap", "wms")
-proj.addMapLayer(osm_l)
+proj.addMapLayer(osm_l, False)
+root.addLayer(osm_l)          # last = bottom of the stack
+# default view: parish extent, so QGIS opens zoomed to the data instead of 1:1
+view = proj.viewSettings()
+ext0 = parish.extent()
+ext0.scale(1.05)
+view.setDefaultViewExtent(QgsReferencedRectangle(ext0, parish.crs()))
+view.setPresetFullExtent(QgsReferencedRectangle(ext0, parish.crs()))
 proj.write(os.path.join(ROOT, "east_carroll_parks.qgz"))
 
 ms = QgsMapSettings()
@@ -307,6 +380,7 @@ job.start()
 job.waitForFinished()
 job.renderedImage().save(os.path.join(ROOT, "east_carroll_overview.png"))
 
+print("LA parishes:", la_parishes.featureCount(), "| LA tracts:", la_tracts.featureCount())
 print("parish:", parish.featureCount(), "| tracts:", tracts.featureCount(), "| block groups:", bgs.featureCount())
 print("municipalities:", [f["NAME"] for f in places.getFeatures()])
 print("rec assets:", assets.featureCount(), "| parks/fields:", parks.featureCount())

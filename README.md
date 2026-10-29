@@ -23,6 +23,7 @@ Working repository for standing up a parks and recreation program in East Carrol
 - `rec_assets`: 44 points from OpenStreetMap: ball fields, tennis courts, pool, two boat ramps, schools, the Louisiana State Cotton Museum, Bayou Macon WMA, and named lakes
 - `trails_named`, `trails_paths`, `trails_tracks`: OpenStreetMap trail and track linework from the Take-a-Hike repo (`gis/find_trails.py` output), clipped to the parish, with `length_km_clipped`
 - `rail_corridors` (54.9 km, all disused), `levees` (47.9 km), `rail_corridor_1mi_catchment` from OpenStreetMap
+- `la_parishes` (64) and `la_tracts` (1,388, with ACS poverty) in a "Louisiana statewide (toggle)" group, off by default
 - `park_walkshed_half_mile`: half-mile buffers around existing parks and fields
 - `block_groups_no_park_access`: block groups entirely outside those buffers
 
