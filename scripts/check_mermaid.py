@@ -66,8 +66,7 @@ def render_check(body, mmdc, puppeteer_cfg):
         if r.returncode != 0 or not os.path.exists(out):
             msg = (r.stderr or r.stdout).strip()
             # keep the first lines, which carry the parse error, not the puppeteer stack
-            return ["
-     ".join(msg.splitlines()[:6]) or "mmdc failed"]
+            return ["\n     ".join(msg.splitlines()[:6]) or "mmdc failed"]
     return []
 
 
