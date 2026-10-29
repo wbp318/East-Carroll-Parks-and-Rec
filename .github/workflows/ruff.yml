@@ -1,0 +1,21 @@
+name: Ruff
+
+on:
+  push:
+    paths: ["**/*.py", "pyproject.toml", ".github/workflows/ruff.yml"]
+  pull_request:
+    paths: ["**/*.py", "pyproject.toml", ".github/workflows/ruff.yml"]
+  workflow_dispatch:
+
+jobs:
+  ruff:
+    name: Lint and format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check --output-format=github
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check --diff

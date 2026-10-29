@@ -1,0 +1,27 @@
+[project]
+name = "east-carroll-parks-and-rec"
+version = "0.1.0"
+description = "Funding roadmap, trails plan, and QGIS project for a Parks, Recreation & Trails Division of the East Carroll Parish Police Jury"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["gis/data", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N"]
+ignore = [
+  "E501",  # ruff format owns line length; remaining hits are long literal strings
+  "E402",  # gis/build_project.py must initialise QgsApplication before importing processing
+  "F403",  # from qgis.core import * is the conventional PyQGIS style
+  "F405",  # names from that star import
+  "N806",  # PyQGIS uses camelCase locals when mirroring the API
+  "N812",  # QVariant / QColor style imports
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gis", "scripts"]
+
+[tool.ruff.format]
+quote-style = "double"

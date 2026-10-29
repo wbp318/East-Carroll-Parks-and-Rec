@@ -19,7 +19,7 @@ Working repository for standing up a parks and recreation program in East Carrol
 | `gis/data/processed/acs_2023_east_carroll.json` | Census ACS 2023 5-year population, income, and poverty for parish, tracts, block groups, and places |
 | `gis/east_carroll_overview.png` | Rendered parish map: poverty by tract, existing recreation assets, half-mile park walksheds |
 | `gis/build_project.py` | Script that downloads nothing but rebuilds everything from `gis/data/raw` |
-| `scripts/check_mermaid.py` | Validates every Mermaid block in the repo; CI runs it with `--render` via `.github/workflows/mermaid.yml` |
+| `scripts/check_mermaid.py` | Validates every Mermaid block in the repo; CI runs it with `--render` via `.github/workflows/mermaid.yml`; `.github/workflows/ruff.yml` lints and format-checks all Python with Ruff (config in `pyproject.toml`) |
 
 ## GIS layers in the GeoPackage
 

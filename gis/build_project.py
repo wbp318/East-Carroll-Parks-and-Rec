@@ -7,7 +7,12 @@ OpenStreetMap recreation features (Overpass JSON).
 Outputs: gis/data/processed/east_carroll.gpkg, gis/east_carroll_parks.qgz,
 gis/east_carroll_overview.png
 """
-import os, sys, json, zipfile, glob
+
+import glob
+import json
+import os
+import sys
+import zipfile
 from collections import Counter
 
 from qgis.core import *
@@ -26,6 +31,7 @@ app.initQgis()
 sys.path.append(r"C:\OSGeo4W\apps\qgis-ltr\python\plugins")
 import processing
 from processing.core.Processing import Processing
+
 Processing.initialize()
 
 for z in glob.glob(os.path.join(RAW, "*.zip")):
@@ -46,8 +52,11 @@ def save(layer, name):
     opts = QgsVectorFileWriter.SaveVectorOptions()
     opts.driverName = "GPKG"
     opts.layerName = name
-    opts.actionOnExistingFile = (QgsVectorFileWriter.CreateOrOverwriteLayer if os.path.exists(GPKG)
-                                 else QgsVectorFileWriter.CreateOrOverwriteFile)
+    opts.actionOnExistingFile = (
+        QgsVectorFileWriter.CreateOrOverwriteLayer
+        if os.path.exists(GPKG)
+        else QgsVectorFileWriter.CreateOrOverwriteFile
+    )
     r = QgsVectorFileWriter.writeAsVectorFormatV3(layer, GPKG, QgsProject.instance().transformContext(), opts)
     assert r[0] == QgsVectorFileWriter.NoError, (name, r)
     return QgsVectorLayer(f"{GPKG}|layername={name}", name, "ogr")
@@ -70,10 +79,25 @@ bgs = extract(shp("tl_2024_22_bg"), "\"COUNTYFP\" = '035'", "block_groups")
 roads = save(QgsVectorLayer(shp("tl_2024_22035_roads"), "roads", "ogr"), "roads")
 awater = save(QgsVectorLayer(shp("tl_2024_22035_areawater"), "water_areas", "ogr"), "water_areas")
 lwater = save(QgsVectorLayer(shp("tl_2024_22035_linearwater"), "water_lines", "ogr"), "water_lines")
-places = save(run("native:extractbylocation", INPUT=QgsVectorLayer(shp("tl_2024_22_place"), "p", "ogr"),
-                  PREDICATE=[6], INTERSECT=parish), "municipalities")
-schools_d = save(run("native:extractbylocation", INPUT=QgsVectorLayer(shp("tl_2024_22_unsd"), "u", "ogr"),
-                     PREDICATE=[0], INTERSECT=parish), "school_district")
+places = save(
+    run(
+        "native:extractbylocation",
+        INPUT=QgsVectorLayer(shp("tl_2024_22_place"), "p", "ogr"),
+        PREDICATE=[6],
+        INTERSECT=parish,
+    ),
+    "municipalities",
+)
+schools_d = save(
+    run(
+        "native:extractbylocation",
+        INPUT=QgsVectorLayer(shp("tl_2024_22_unsd"), "u", "ogr"),
+        PREDICATE=[0],
+        INTERSECT=parish,
+    ),
+    "school_district",
+)
+
 
 # ---- ACS join to tracts ----
 def acs_table(table, cols):
@@ -97,9 +121,9 @@ def acs_table(table, cols):
     return out
 
 
-mhi = acs_table("b19013", ["B19013_E001"])                      # median household income
-pov = acs_table("b17021", ["B17021_E001", "B17021_E002"])       # poverty universe, below poverty
-pop = acs_table("b01003", ["B01003_E001"])                      # total population
+mhi = acs_table("b19013", ["B19013_E001"])  # median household income
+pov = acs_table("b17021", ["B17021_E001", "B17021_E002"])  # poverty universe, below poverty
+pop = acs_table("b01003", ["B01003_E001"])  # total population
 acs_summary = {}
 for geo in pop:
     p = pov.get(geo, [None, None])
@@ -131,6 +155,7 @@ for f in bgs.getFeatures():
             bgs.changeAttributeValue(f.id(), bgs.fields().indexOf(k), r[k])
 bgs.commitChanges()
 
+
 # ---- Statewide context: all LA parishes + all LA tracts with poverty (toggle group) ----
 def acs_state(table, cols, prefix="1400000US22"):
     out = {}
@@ -148,7 +173,7 @@ def acs_state(table, cols, prefix="1400000US22"):
                     vals.append(None if x < 0 else x)
                 except ValueError:
                     vals.append(None)
-            out[parts[0][len("1400000US"):]] = vals
+            out[parts[0][len("1400000US") :]] = vals
     return out
 
 
@@ -157,22 +182,30 @@ la_tracts = save(QgsVectorLayer(shp("tl_2024_22_tract"), "t", "ogr"), "la_tracts
 st_pov = acs_state("b17021", ["B17021_E001", "B17021_E002"])
 st_mhi = acs_state("b19013", ["B19013_E001"])
 st_pop = acs_state("b01003", ["B01003_E001"])
-la_tracts.dataProvider().addAttributes([QgsField(k, QVariant.Double) for k in ("population", "med_hh_income", "poverty_pct")])
+la_tracts.dataProvider().addAttributes(
+    [QgsField(k, QVariant.Double) for k in ("population", "med_hh_income", "poverty_pct")]
+)
 la_tracts.updateFields()
 la_tracts.startEditing()
 for f in la_tracts.getFeatures():
     g = f["GEOID"]
     pv = st_pov.get(g, [None, None])
-    vals = {"population": st_pop.get(g, [None])[0], "med_hh_income": st_mhi.get(g, [None])[0],
-            "poverty_pct": round(100 * pv[1] / pv[0], 1) if pv[0] else None}
+    vals = {
+        "population": st_pop.get(g, [None])[0],
+        "med_hh_income": st_mhi.get(g, [None])[0],
+        "poverty_pct": round(100 * pv[1] / pv[0], 1) if pv[0] else None,
+    }
     for k, v in vals.items():
         la_tracts.changeAttributeValue(f.id(), la_tracts.fields().indexOf(k), v)
 la_tracts.commitChanges()
 
 # ---- OSM recreation assets ----
 osm = json.load(open(os.path.join(RAW, "osm_rec.json")))["elements"]
-assets = QgsVectorLayer("Point?crs=EPSG:4326&field=osm_id:string&field=name:string&field=category:string&field=tag:string",
-                        "rec_assets", "memory")
+assets = QgsVectorLayer(
+    "Point?crs=EPSG:4326&field=osm_id:string&field=name:string&field=category:string&field=tag:string",
+    "rec_assets",
+    "memory",
+)
 feats = []
 for e in osm:
     t = e.get("tags", {})
@@ -194,8 +227,11 @@ assets.updateExtents()
 assets = save(assets, "rec_assets")
 
 # ---- Half-mile (10-minute walk) service areas around existing parks/fields ----
-parks = run("native:extractbyexpression", INPUT=assets,
-            EXPRESSION="\"tag\" in ('park','playground','pitch','sports_centre','swimming_pool','track')")
+parks = run(
+    "native:extractbyexpression",
+    INPUT=assets,
+    EXPRESSION="\"tag\" in ('park','playground','pitch','sports_centre','swimming_pool','track')",
+)
 parks_utm = run("native:reprojectlayer", INPUT=parks, TARGET_CRS="EPSG:26915")
 buf = run("native:buffer", INPUT=parks_utm, DISTANCE=804.67, DISSOLVE=True)
 walk = save(run("native:reprojectlayer", INPUT=buf, TARGET_CRS="EPSG:4326"), "park_walkshed_half_mile")
@@ -208,12 +244,23 @@ if os.path.exists(trail_src):
     tl = QgsVectorLayer(trail_src + "|geometrytype=LineString", "trails_src", "ogr")
     assert tl.isValid(), trail_src
     clipped = run("native:clip", INPUT=tl, OVERLAY=parish)
-    clipped = run("native:fieldcalculator", INPUT=clipped, FIELD_NAME="length_km_clipped",
-                  FIELD_TYPE=0, FIELD_LENGTH=10, FIELD_PRECISION=2,
-                  FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)")
-    for name, expr in (("trails_named", "\"name\" IS NOT NULL AND \"name\" <> ''"),
-                       ("trails_paths", "(\"name\" IS NULL OR \"name\" = '') AND \"kind\" IN ('path','footway','cycleway','bridleway','steps')"),
-                       ("trails_tracks", "(\"name\" IS NULL OR \"name\" = '') AND \"kind\" = 'track'")):
+    clipped = run(
+        "native:fieldcalculator",
+        INPUT=clipped,
+        FIELD_NAME="length_km_clipped",
+        FIELD_TYPE=0,
+        FIELD_LENGTH=10,
+        FIELD_PRECISION=2,
+        FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)",
+    )
+    for name, expr in (
+        ("trails_named", '"name" IS NOT NULL AND "name" <> \'\''),
+        (
+            "trails_paths",
+            "(\"name\" IS NULL OR \"name\" = '') AND \"kind\" IN ('path','footway','cycleway','bridleway','steps')",
+        ),
+        ("trails_tracks", '("name" IS NULL OR "name" = \'\') AND "kind" = \'track\''),
+    ):
         trail_layers[name] = save(run("native:extractbyexpression", INPUT=clipped, EXPRESSION=expr), name)
 
 # ---- Rail corridors and levees (OSM) ----
@@ -221,10 +268,15 @@ rail_src = os.path.join(RAW, "osm_rail_levee.json")
 rail = levee = None
 if os.path.exists(rail_src):
     els = json.load(open(rail_src))["elements"]
-    rail_mem = QgsVectorLayer("LineString?crs=EPSG:4326&field=osm_id:string&field=name:string&field=operator:string"
-                              "&field=railway:string&field=usage:string", "rail", "memory")
-    levee_mem = QgsVectorLayer("LineString?crs=EPSG:4326&field=osm_id:string&field=name:string&field=feature:string",
-                               "levee", "memory")
+    rail_mem = QgsVectorLayer(
+        "LineString?crs=EPSG:4326&field=osm_id:string&field=name:string&field=operator:string"
+        "&field=railway:string&field=usage:string",
+        "rail",
+        "memory",
+    )
+    levee_mem = QgsVectorLayer(
+        "LineString?crs=EPSG:4326&field=osm_id:string&field=name:string&field=feature:string", "levee", "memory"
+    )
     rf, lf = [], []
     for e in els:
         if e["type"] != "way" or "geometry" not in e:
@@ -234,7 +286,9 @@ if os.path.exists(rail_src):
         if "railway" in t:
             f = QgsFeature(rail_mem.fields())
             f.setGeometry(line)
-            f.setAttributes([f"way/{e['id']}", t.get("name", ""), t.get("operator", ""), t["railway"], t.get("usage", "")])
+            f.setAttributes(
+                [f"way/{e['id']}", t.get("name", ""), t.get("operator", ""), t["railway"], t.get("usage", "")]
+            )
             rf.append(f)
         elif t.get("man_made") in ("dyke", "embankment"):
             f = QgsFeature(levee_mem.fields())
@@ -245,15 +299,41 @@ if os.path.exists(rail_src):
     levee_mem.dataProvider().addFeatures(lf)
     for m in (rail_mem, levee_mem):
         m.updateExtents()
-    rail = save(run("native:fieldcalculator", INPUT=run("native:clip", INPUT=rail_mem, OVERLAY=parish),
-                    FIELD_NAME="length_km", FIELD_TYPE=0, FIELD_LENGTH=10, FIELD_PRECISION=2,
-                    FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)"), "rail_corridors")
-    levee = save(run("native:fieldcalculator", INPUT=run("native:clip", INPUT=levee_mem, OVERLAY=parish),
-                     FIELD_NAME="length_km", FIELD_TYPE=0, FIELD_LENGTH=10, FIELD_PRECISION=2,
-                     FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)"), "levees")
+    rail = save(
+        run(
+            "native:fieldcalculator",
+            INPUT=run("native:clip", INPUT=rail_mem, OVERLAY=parish),
+            FIELD_NAME="length_km",
+            FIELD_TYPE=0,
+            FIELD_LENGTH=10,
+            FIELD_PRECISION=2,
+            FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)",
+        ),
+        "rail_corridors",
+    )
+    levee = save(
+        run(
+            "native:fieldcalculator",
+            INPUT=run("native:clip", INPUT=levee_mem, OVERLAY=parish),
+            FIELD_NAME="length_km",
+            FIELD_TYPE=0,
+            FIELD_LENGTH=10,
+            FIELD_PRECISION=2,
+            FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)",
+        ),
+        "levees",
+    )
     # 1-mile catchment around the rail corridor for population served
-    rail_buf = run("native:reprojectlayer", INPUT=run("native:buffer", INPUT=run("native:reprojectlayer", INPUT=rail,
-                   TARGET_CRS="EPSG:26915"), DISTANCE=1609.34, DISSOLVE=True), TARGET_CRS="EPSG:4326")
+    rail_buf = run(
+        "native:reprojectlayer",
+        INPUT=run(
+            "native:buffer",
+            INPUT=run("native:reprojectlayer", INPUT=rail, TARGET_CRS="EPSG:26915"),
+            DISTANCE=1609.34,
+            DISSOLVE=True,
+        ),
+        TARGET_CRS="EPSG:4326",
+    )
     rail_buf = save(rail_buf, "rail_corridor_1mi_catchment")
 
 # ---- Project + styling ----
@@ -263,17 +343,17 @@ proj.setTitle("East Carroll Parish Parks & Recreation")
 
 
 # ---------- Styling: calm palette, plain-English names ----------
-def style_fill(l, color, outline="#333333", width=0.3, opacity=1.0):
+def style_fill(lyr, color, outline="#333333", width=0.3, opacity=1.0):
     s = QgsFillSymbol.createSimple({"color": color, "outline_color": outline, "outline_width": str(width)})
     s.setOpacity(opacity)
-    l.renderer().setSymbol(s)
+    lyr.renderer().setSymbol(s)
 
 
-def style_line(l, color, width, style="solid"):
-    l.renderer().setSymbol(QgsLineSymbol.createSimple({"color": color, "width": str(width), "line_style": style}))
+def style_line(lyr, color, width, style="solid"):
+    lyr.renderer().setSymbol(QgsLineSymbol.createSimple({"color": color, "width": str(width), "line_style": style}))
 
 
-def label(l, field, size=8, color="#222222", italic=False, halo=True, along_line=False):
+def label(lyr, field, size=8, color="#222222", italic=False, halo=True, along_line=False):
     ls = QgsPalLayerSettings()
     ls.fieldName = field
     ls.enabled = True
@@ -292,12 +372,18 @@ def label(l, field, size=8, color="#222222", italic=False, halo=True, along_line
         buf.setColor(QColor("#ffffff"))
         tf.setBuffer(buf)
     ls.setFormat(tf)
-    l.setLabelsEnabled(True)
-    l.setLabeling(QgsVectorLayerSimpleLabeling(ls))
+    lyr.setLabelsEnabled(True)
+    lyr.setLabeling(QgsVectorLayerSimpleLabeling(ls))
 
 
 # Poverty: muted tan-to-brown sequential, same breaks parish and statewide
-POVERTY_BREAKS = [(0, 10, "#fbf6ee"), (10, 20, "#efdfc2"), (20, 30, "#dbbb8a"), (30, 40, "#c0905a"), (40, 100, "#9a6a38")]
+POVERTY_BREAKS = [
+    (0, 10, "#fbf6ee"),
+    (10, 20, "#efdfc2"),
+    (20, 30, "#dbbb8a"),
+    (30, 40, "#c0905a"),
+    (40, 100, "#9a6a38"),
+]
 
 
 def poverty_renderer():
@@ -324,9 +410,16 @@ style_fill(awater, "#cfe3f2", "#9fc3de", 0.1)
 style_line(lwater, "#9fc3de", 0.25)
 # Roads: heavier for highways (TIGER MTFCC S1100/S1200), lighter for local streets; small labels when zoomed in
 road_cats = []
-for codes, col, w, lbl in ((("S1100",), "#4a4a4a", 0.8, "US / state highway"),
-                           (("S1200",), "#5c5c5c", 0.55, "Secondary road"),
-                           (("S1400", "S1500", "S1630", "S1640", "S1710", "S1720", "S1730", "S1740", "S1750", "S1780", "S1820", "S1830"), "#8a8a8a", 0.3, "Local road")):
+for codes, col, w, lbl in (
+    (("S1100",), "#4a4a4a", 0.8, "US / state highway"),
+    (("S1200",), "#5c5c5c", 0.55, "Secondary road"),
+    (
+        ("S1400", "S1500", "S1630", "S1640", "S1710", "S1720", "S1730", "S1740", "S1750", "S1780", "S1820", "S1830"),
+        "#8a8a8a",
+        0.3,
+        "Local road",
+    ),
+):
     sym = QgsLineSymbol.createSimple({"color": col, "width": str(w)})
     for c in codes:
         road_cats.append(QgsRendererCategory(c, sym.clone(), lbl))
@@ -339,8 +432,8 @@ rl.placement = Qgis.LabelPlacement.Line
 rl.lineSettings().setMergeLines(True)
 rl.priority = 3
 rl.scaleVisibility = True
-rl.maximumScale = 1          # most zoomed in
-rl.minimumScale = 75000      # hide labels when zoomed out past 1:75,000
+rl.maximumScale = 1  # most zoomed in
+rl.minimumScale = 75000  # hide labels when zoomed out past 1:75,000
 rtf = QgsTextFormat()
 rtf.setFont(QFont("Arial"))
 rtf.setSize(6.5)
@@ -386,14 +479,19 @@ for f in assets.getFeatures():
     assets.changeAttributeValue(f.id(), ci, ASSET_CLASS.get(f["tag"], ("Other", "", "", 0))[0])
 assets.commitChanges()
 cats, seen = [], set()
-for tag, (cls, col, shape, size) in ASSET_CLASS.items():
+for _tag, (cls, col, shape, size) in ASSET_CLASS.items():
     if cls in seen:
         continue
     seen.add(cls)
-    sym = QgsMarkerSymbol.createSimple({"color": col, "outline_color": "#ffffff", "outline_width": "0.4",
-                                        "name": shape, "size": str(size)})
+    sym = QgsMarkerSymbol.createSimple(
+        {"color": col, "outline_color": "#ffffff", "outline_width": "0.4", "name": shape, "size": str(size)}
+    )
     cats.append(QgsRendererCategory(cls, sym, cls))
-cats.append(QgsRendererCategory("Other", QgsMarkerSymbol.createSimple({"color": "#b0b0b0", "outline_color": "#ffffff", "size": "2.0"}), "Other"))
+cats.append(
+    QgsRendererCategory(
+        "Other", QgsMarkerSymbol.createSimple({"color": "#b0b0b0", "outline_color": "#ffffff", "size": "2.0"}), "Other"
+    )
+)
 assets.setRenderer(QgsCategorizedSymbolRenderer("asset_class", cats))
 label(assets, "name", 7, "#333333")
 
@@ -421,8 +519,11 @@ if "trails_named" in trail_layers:
     named.setLabelsEnabled(True)
     named.setLabeling(QgsVectorLayerSimpleLabeling(ls))
     # midpoint of each named way, bold label that stays visible at any scale
-    mem = QgsVectorLayer("Point?crs=EPSG:4326&field=name:string&field=kind:string&field=length_km:double&field=osm_url:string",
-                         "trail_names", "memory")
+    mem = QgsVectorLayer(
+        "Point?crs=EPSG:4326&field=name:string&field=kind:string&field=length_km:double&field=osm_url:string",
+        "trail_names",
+        "memory",
+    )
     pts = []
     for w in named.getFeatures():
         g = w.geometry()
@@ -433,8 +534,11 @@ if "trails_named" in trail_layers:
     mem.dataProvider().addFeatures(pts)
     mem.updateExtents()
     trail_names = save(mem, "trail_names")
-    trail_names.renderer().setSymbol(QgsMarkerSymbol.createSimple(
-        {"name": "circle", "color": "#c0392b", "outline_color": "#ffffff", "outline_width": "0.4", "size": "2.6"}))
+    trail_names.renderer().setSymbol(
+        QgsMarkerSymbol.createSimple(
+            {"name": "circle", "color": "#c0392b", "outline_color": "#ffffff", "outline_width": "0.4", "size": "2.6"}
+        )
+    )
     lab = QgsPalLayerSettings()
     lab.fieldName = "name"
     lab.enabled = True
@@ -480,31 +584,45 @@ NAMES = [
     (schools_d, "School district"),
 ]
 if trail_layers:
-    NAMES += [(trail_layers.get("trails_named"), "Named trails and tracks"),
-              (trail_layers.get("trails_paths"), "Paths and sidewalks"),
-              (trail_layers.get("trails_tracks"), "Farm and levee tracks (unnamed)")]
+    NAMES += [
+        (trail_layers.get("trails_named"), "Named trails and tracks"),
+        (trail_layers.get("trails_paths"), "Paths and sidewalks"),
+        (trail_layers.get("trails_tracks"), "Farm and levee tracks (unnamed)"),
+    ]
 if rail is not None:
-    NAMES += [(rail, "Rail corridor (out of service)"), (levee, "Mississippi River levee"),
-              (rail_buf, "Within one mile of the rail corridor")]
+    NAMES += [
+        (rail, "Rail corridor (out of service)"),
+        (levee, "Mississippi River levee"),
+        (rail_buf, "Within one mile of the rail corridor"),
+    ]
 for lyr, nm in NAMES:
     if lyr is not None:
         lyr.setName(nm)
 root = proj.layerTreeRoot()
-for l in (assets,) + ((trail_names,) if trail_names is not None else ()) + (places,) + tuple(trail_layers.values()) + tuple(extra) + (roads, lwater, awater, walk, gap, tracts, schools_d, bgs, parish):
-    proj.addMapLayer(l, False)
-    root.addLayer(l)          # appended in order, so the first added draws on top
+for lyr in (
+    (assets,)
+    + ((trail_names,) if trail_names is not None else ())
+    + (places,)
+    + tuple(trail_layers.values())
+    + tuple(extra)
+    + (roads, lwater, awater, walk, gap, tracts, schools_d, bgs, parish)
+):
+    proj.addMapLayer(lyr, False)
+    root.addLayer(lyr)  # appended in order, so the first added draws on top
 for hidden in (bgs, schools_d):
     if hidden is None:
         continue
     root.findLayer(hidden.id()).setItemVisibilityChecked(False)
 la_group = root.addGroup("Louisiana statewide (toggle)")
-for l in (la_parishes, la_tracts):
-    proj.addMapLayer(l, False)
-    la_group.addLayer(l)
+for lyr in (la_parishes, la_tracts):
+    proj.addMapLayer(lyr, False)
+    la_group.addLayer(lyr)
 la_group.setItemVisibilityChecked(False)
-osm_l = QgsRasterLayer("type=xyz&url=https://tile.openstreetmap.org/{z}/{x}/{y}.png&zmax=19&zmin=0", "OpenStreetMap", "wms")
+osm_l = QgsRasterLayer(
+    "type=xyz&url=https://tile.openstreetmap.org/{z}/{x}/{y}.png&zmax=19&zmin=0", "OpenStreetMap", "wms"
+)
 proj.addMapLayer(osm_l, False)
-root.addLayer(osm_l)          # last = bottom of the stack
+root.addLayer(osm_l)  # last = bottom of the stack
 # default view: parish extent, so QGIS opens zoomed to the data instead of 1:1
 view = proj.viewSettings()
 ext0 = parish.extent()
@@ -512,9 +630,20 @@ ext0.scale(1.05)
 view.setDefaultViewExtent(QgsReferencedRectangle(ext0, parish.crs()))
 view.setPresetFullExtent(QgsReferencedRectangle(ext0, parish.crs()))
 # ---- Print layout with legend (Project > Layouts > "East Carroll Parks Map") ----
-from qgis.core import (QgsPrintLayout, QgsLayoutItemMap, QgsLayoutItemLegend, QgsLayoutItemLabel,
-                       QgsLayoutItemScaleBar, QgsLayoutItemPicture, QgsLayoutPoint, QgsLayoutSize,
-                       QgsUnitTypes, QgsLayoutExporter, QgsLayerTree)
+from qgis.core import (
+    QgsLayerTree,
+    QgsLayoutExporter,
+    QgsLayoutItemLabel,
+    QgsLayoutItemLegend,
+    QgsLayoutItemMap,
+    QgsLayoutItemPicture,
+    QgsLayoutItemScaleBar,
+    QgsLayoutPoint,
+    QgsLayoutSize,
+    QgsPrintLayout,
+    QgsUnitTypes,
+)
+
 layout = QgsPrintLayout(proj)
 layout.initializeDefaults()
 layout.setName("East Carroll Parks Map")
@@ -532,7 +661,14 @@ lmap = QgsLayoutItemMap(layout)
 lmap.attemptMove(QgsLayoutPoint(10, 20, QgsUnitTypes.LayoutMillimeters))
 lmap.attemptResize(QgsLayoutSize(135, 240, QgsUnitTypes.LayoutMillimeters))
 lmap.setCrs(parish.crs())
-lmap.setLayers([assets] + ([trail_names] if trail_names is not None else []) + [places] + list(trail_layers.values()) + extra + [roads, awater, walk, gap, tracts, parish])
+lmap.setLayers(
+    [assets]
+    + ([trail_names] if trail_names is not None else [])
+    + [places]
+    + list(trail_layers.values())
+    + extra
+    + [roads, awater, walk, gap, tracts, parish]
+)
 lmap.setExtent(ext0)
 lmap.setFrameEnabled(True)
 layout.addLayoutItem(lmap)
@@ -542,8 +678,14 @@ legend.setTitle("Legend")
 legend.setLinkedMap(lmap)
 legend.setAutoUpdateModel(False)
 lt = QgsLayerTree()
-for l in [assets] + ([trail_names] if trail_names is not None else []) + list(trail_layers.values()) + extra + [walk, gap, tracts, awater, places, parish]:
-    lt.addLayer(l)
+for lyr in (
+    [assets]
+    + ([trail_names] if trail_names is not None else [])
+    + list(trail_layers.values())
+    + extra
+    + [walk, gap, tracts, awater, places, parish]
+):
+    lt.addLayer(lyr)
 legend.model().setRootGroup(lt)
 legend.setStyleFont(QgsLegendStyle.Title, QFont("Arial", 11, QFont.Bold))
 legend.setStyleFont(QgsLegendStyle.Subgroup, QFont("Arial", 8, QFont.Bold))
@@ -573,8 +715,10 @@ north.attemptResize(QgsLayoutSize(10, 14, QgsUnitTypes.LayoutMillimeters))
 layout.addLayoutItem(north)
 
 credit = QgsLayoutItemLabel(layout)
-credit.setText("Sources: Census TIGER 2024, ACS 2023 5-yr (tract poverty), OpenStreetMap (assets, trails, rail, levees). "
-               "Built with QGIS. github.com/wbp318/East-Carroll-Parks-and-Rec")
+credit.setText(
+    "Sources: Census TIGER 2024, ACS 2023 5-yr (tract poverty), OpenStreetMap (assets, trails, rail, levees). "
+    "Built with QGIS. github.com/wbp318/East-Carroll-Parks-and-Rec"
+)
 credit.setFont(QFont("Arial", 7))
 credit.attemptMove(QgsLayoutPoint(10, 263, QgsUnitTypes.LayoutMillimeters))
 credit.attemptResize(QgsLayoutSize(196, 8, QgsUnitTypes.LayoutMillimeters))
@@ -590,7 +734,14 @@ exp.exportToImage(os.path.join(ROOT, "east_carroll_parks_map.png"), png_settings
 proj.write(os.path.join(ROOT, "east_carroll_parks.qgz"))
 
 ms = QgsMapSettings()
-ms.setLayers([assets] + ([trail_names] if trail_names is not None else []) + [places] + list(trail_layers.values()) + extra + [roads, awater, walk, gap, tracts, parish])
+ms.setLayers(
+    [assets]
+    + ([trail_names] if trail_names is not None else [])
+    + [places]
+    + list(trail_layers.values())
+    + extra
+    + [roads, awater, walk, gap, tracts, parish]
+)
 ms.setBackgroundColor(QColor(255, 255, 255))
 ms.setOutputSize(QSize(1600, 2000))
 ms.setDestinationCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
@@ -606,20 +757,39 @@ print("LA parishes:", la_parishes.featureCount(), "| LA tracts:", la_tracts.feat
 print("parish:", parish.featureCount(), "| tracts:", tracts.featureCount(), "| block groups:", bgs.featureCount())
 print("municipalities:", [f["NAME"] for f in places.getFeatures()])
 print("rec assets:", assets.featureCount(), "| parks/fields:", parks.featureCount())
-print("block groups outside half-mile park walkshed:", gap.featureCount(), "of", bgs.featureCount(),
-      "| pop without walkable park access:", sum((f["population"] or 0) for f in gap.getFeatures()))
+print(
+    "block groups outside half-mile park walkshed:",
+    gap.featureCount(),
+    "of",
+    bgs.featureCount(),
+    "| pop without walkable park access:",
+    sum((f["population"] or 0) for f in gap.getFeatures()),
+)
 print("parish:", acs_summary.get("0500000US22035"))
-for name, l in trail_layers.items():
-    km = sum((f["length_km_clipped"] or 0) for f in l.getFeatures())
-    print(f"{name}: {l.featureCount()} segments, {km:.1f} km inside parish")
+for name, lyr in trail_layers.items():
+    km = sum((f["length_km_clipped"] or 0) for f in lyr.getFeatures())
+    print(f"{name}: {lyr.featureCount()} segments, {km:.1f} km inside parish")
 if "trails_named" in trail_layers:
     print(sorted({f["name"] for f in trail_layers["trails_named"].getFeatures()}))
 if rail is not None:
-    print("rail corridors:", rail.featureCount(), "segments,", round(sum(f["length_km"] for f in rail.getFeatures()), 1), "km;",
-          Counter((f["name"], f["railway"]) for f in rail.getFeatures()))
-    print("levees:", levee.featureCount(), "segments,", round(sum(f["length_km"] for f in levee.getFeatures()), 1), "km")
+    print(
+        "rail corridors:",
+        rail.featureCount(),
+        "segments,",
+        round(sum(f["length_km"] for f in rail.getFeatures()), 1),
+        "km;",
+        Counter((f["name"], f["railway"]) for f in rail.getFeatures()),
+    )
+    print(
+        "levees:", levee.featureCount(), "segments,", round(sum(f["length_km"] for f in levee.getFeatures()), 1), "km"
+    )
     served = run("native:extractbylocation", INPUT=bgs, PREDICATE=[0], INTERSECT=rail_buf)
-    print("block groups within 1 mi of rail corridor:", served.featureCount(), "pop", sum((f["population"] or 0) for f in served.getFeatures()))
+    print(
+        "block groups within 1 mi of rail corridor:",
+        served.featureCount(),
+        "pop",
+        sum((f["population"] or 0) for f in served.getFeatures()),
+    )
 for f in tracts.getFeatures():
     print(" tract", f["GEOID"], "pop", f["population"], "poverty%", f["poverty_pct"], "MHI", f["med_hh_income"])
 print(Counter(f["tag"] for f in assets.getFeatures()).most_common(25))

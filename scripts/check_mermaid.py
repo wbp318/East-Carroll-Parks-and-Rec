@@ -7,6 +7,7 @@ Usage:
 Static checks catch the common breakages (unknown diagram type, unbalanced brackets or
 quotes, empty block). --render is what CI runs and is authoritative.
 """
+
 import argparse
 import os
 import re
@@ -16,9 +17,28 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DIAGRAM_TYPES = ("flowchart", "graph", "sequenceDiagram", "classDiagram", "stateDiagram", "stateDiagram-v2",
-                 "erDiagram", "journey", "gantt", "pie", "quadrantChart", "requirementDiagram", "gitGraph",
-                 "mindmap", "timeline", "sankey-beta", "xychart-beta", "block-beta", "C4Context", "zenuml")
+DIAGRAM_TYPES = (
+    "flowchart",
+    "graph",
+    "sequenceDiagram",
+    "classDiagram",
+    "stateDiagram",
+    "stateDiagram-v2",
+    "erDiagram",
+    "journey",
+    "gantt",
+    "pie",
+    "quadrantChart",
+    "requirementDiagram",
+    "gitGraph",
+    "mindmap",
+    "timeline",
+    "sankey-beta",
+    "xychart-beta",
+    "block-beta",
+    "C4Context",
+    "zenuml",
+)
 BLOCK_RE = re.compile(r"```mermaid[ \t]*\n(.*?)```", re.DOTALL)
 
 
@@ -32,7 +52,7 @@ def find_markdown():
 
 def static_check(body):
     errors = []
-    lines = [l for l in body.strip("\n").split("\n") if l.strip() and not l.strip().startswith("%%")]
+    lines = [lyr for lyr in body.strip("\n").split("\n") if lyr.strip() and not lyr.strip().startswith("%%")]
     if not lines:
         return ["empty block"]
     first = lines[0].strip()
@@ -48,7 +68,7 @@ def static_check(body):
     # parentheses inside an unquoted [...] node label are parsed as shape syntax by mermaid
     for m in re.finditer(r"\[([^\]\"]*)\]", body):
         g = m.group(1)
-        if g.startswith("(") and g.endswith(")"):   # [( )] is the cylinder shape, legitimate
+        if g.startswith("(") and g.endswith(")"):  # [( )] is the cylinder shape, legitimate
             continue
         if "(" in g or ")" in g:
             errors.append(f"parentheses inside unquoted [] label: [{m.group(1)[:40]}] -> wrap the label in quotes")
@@ -89,7 +109,7 @@ def main():
         for i, m in enumerate(BLOCK_RE.finditer(text), 1):
             total += 1
             body = m.group(1)
-            line = text[:m.start()].count("\n") + 1
+            line = text[: m.start()].count("\n") + 1
             errs = static_check(body)
             if args.render and not errs:
                 errs = render_check(body, mmdc, cfg)
