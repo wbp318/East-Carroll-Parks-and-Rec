@@ -47,7 +47,10 @@ def static_check(body):
         errors.append("odd number of double quotes")
     # parentheses inside an unquoted [...] node label are parsed as shape syntax by mermaid
     for m in re.finditer(r"\[([^\]\"]*)\]", body):
-        if "(" in m.group(1) or ")" in m.group(1):
+        g = m.group(1)
+        if g.startswith("(") and g.endswith(")"):   # [( )] is the cylinder shape, legitimate
+            continue
+        if "(" in g or ")" in g:
             errors.append(f"parentheses inside unquoted [] label: [{m.group(1)[:40]}] -> wrap the label in quotes")
             break
     return errors
