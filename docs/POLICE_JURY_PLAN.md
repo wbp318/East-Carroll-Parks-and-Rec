@@ -44,7 +44,7 @@ flowchart TD
 | 4 | Kendall L. Thompson | **President**, fourth consecutive term; active in the Police Jury Association of Louisiana | KNOE; lpgov.org |
 | 5 | Roger Odell Clement | Juror; committee role; named in the Port Commission rail case, so he knows the rail corridor history | KNOE; La. 2d Cir. 2025 |
 
-Officers were re-elected unchanged in January 2025 per the East Carroll Banner. Confirm the current slate at the first meeting you attend.
+Officers were re-elected unchanged in January 2025 per the East Carroll Banner. **Roster confirmed locally on 2026-10-29.**
 
 ```mermaid
 flowchart LR
