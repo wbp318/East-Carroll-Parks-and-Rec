@@ -156,11 +156,11 @@ flowchart LR
 ```mermaid
 flowchart TD
     S[Lake Providence Line<br/>55 km, disused, owned by Delta Southern / Patriot Rail] --> Q1{Formally abandoned<br/>at the STB?}
-    Q1 -- No (today) --> RWT[Ask Patriot Rail for a<br/>rail-with-trail license<br/>on 3-4 mi through town]
+    Q1 -- "No (today)" --> RWT[Ask Patriot Rail for a<br/>rail-with-trail license<br/>on 3-4 mi through town]
     RWT --> Q2{License granted?}
     Q2 -- Yes --> BUILD1[Design + fund with<br/>TAP / RTP / RTC / DRA]
     Q2 -- No --> ALT[Fall back to lakeshore loop<br/>and levee trail; keep monitoring<br/>STB docket FD 36443]
-    Q1 -- Yes (future filing) --> RB[File railbanking request<br/>16 U.S.C. 1247(d)<br/>within the comment window]
+    Q1 -- "Yes (future filing)" --> RB["File railbanking request<br/>16 U.S.C. 1247(d)<br/>within the comment window"]
     RB --> NITU[STB issues NITU /<br/>interim trail use order]
     NITU --> ACQ[Negotiate corridor transfer<br/>to Recreation District]
     ACQ --> BUILD2[Full rail-trail<br/>TAP + LWCF + RTP + DRA]

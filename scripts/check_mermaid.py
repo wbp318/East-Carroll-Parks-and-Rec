@@ -45,6 +45,11 @@ def static_check(body):
             errors.append(f"unbalanced {ch_open}{ch_close}")
     if body.count('"') % 2:
         errors.append("odd number of double quotes")
+    # parentheses inside an unquoted [...] node label are parsed as shape syntax by mermaid
+    for m in re.finditer(r"\[([^\]\"]*)\]", body):
+        if "(" in m.group(1) or ")" in m.group(1):
+            errors.append(f"parentheses inside unquoted [] label: [{m.group(1)[:40]}] -> wrap the label in quotes")
+            break
     return errors
 
 
@@ -59,7 +64,10 @@ def render_check(body, mmdc, puppeteer_cfg):
             cmd += ["-p", puppeteer_cfg]
         r = subprocess.run(cmd, capture_output=True, text=True, shell=(os.name == "nt"))
         if r.returncode != 0 or not os.path.exists(out):
-            return [(r.stderr or r.stdout).strip()[-600:] or "mmdc failed"]
+            msg = (r.stderr or r.stdout).strip()
+            # keep the first lines, which carry the parse error, not the puppeteer stack
+            return ["
+     ".join(msg.splitlines()[:6]) or "mmdc failed"]
     return []
 
 
