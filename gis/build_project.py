@@ -178,6 +178,46 @@ if os.path.exists(trail_src):
                        ("trails_tracks", "(\"name\" IS NULL OR \"name\" = '') AND \"kind\" = 'track'")):
         trail_layers[name] = save(run("native:extractbyexpression", INPUT=clipped, EXPRESSION=expr), name)
 
+# ---- Rail corridors and levees (OSM) ----
+rail_src = os.path.join(RAW, "osm_rail_levee.json")
+rail = levee = None
+if os.path.exists(rail_src):
+    els = json.load(open(rail_src))["elements"]
+    rail_mem = QgsVectorLayer("LineString?crs=EPSG:4326&field=osm_id:string&field=name:string&field=operator:string"
+                              "&field=railway:string&field=usage:string", "rail", "memory")
+    levee_mem = QgsVectorLayer("LineString?crs=EPSG:4326&field=osm_id:string&field=name:string&field=feature:string",
+                               "levee", "memory")
+    rf, lf = [], []
+    for e in els:
+        if e["type"] != "way" or "geometry" not in e:
+            continue
+        t = e.get("tags", {})
+        line = QgsGeometry.fromPolylineXY([QgsPointXY(p["lon"], p["lat"]) for p in e["geometry"]])
+        if "railway" in t:
+            f = QgsFeature(rail_mem.fields())
+            f.setGeometry(line)
+            f.setAttributes([f"way/{e['id']}", t.get("name", ""), t.get("operator", ""), t["railway"], t.get("usage", "")])
+            rf.append(f)
+        elif t.get("man_made") in ("dyke", "embankment"):
+            f = QgsFeature(levee_mem.fields())
+            f.setGeometry(line)
+            f.setAttributes([f"way/{e['id']}", t.get("name", ""), t["man_made"]])
+            lf.append(f)
+    rail_mem.dataProvider().addFeatures(rf)
+    levee_mem.dataProvider().addFeatures(lf)
+    for m in (rail_mem, levee_mem):
+        m.updateExtents()
+    rail = save(run("native:fieldcalculator", INPUT=run("native:clip", INPUT=rail_mem, OVERLAY=parish),
+                    FIELD_NAME="length_km", FIELD_TYPE=0, FIELD_LENGTH=10, FIELD_PRECISION=2,
+                    FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)"), "rail_corridors")
+    levee = save(run("native:fieldcalculator", INPUT=run("native:clip", INPUT=levee_mem, OVERLAY=parish),
+                     FIELD_NAME="length_km", FIELD_TYPE=0, FIELD_LENGTH=10, FIELD_PRECISION=2,
+                     FORMULA="round(length(transform($geometry,'EPSG:4326','EPSG:26915'))/1000, 2)"), "levees")
+    # 1-mile catchment around the rail corridor for population served
+    rail_buf = run("native:reprojectlayer", INPUT=run("native:buffer", INPUT=run("native:reprojectlayer", INPUT=rail,
+                   TARGET_CRS="EPSG:26915"), DISTANCE=1609.34, DISSOLVE=True), TARGET_CRS="EPSG:4326")
+    rail_buf = save(rail_buf, "rail_corridor_1mi_catchment")
+
 # ---- Project + styling ----
 proj = QgsProject.instance()
 proj.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
@@ -240,7 +280,13 @@ if "trails_named" in trail_layers:
     trail_layers["trails_named"].setLabelsEnabled(True)
     trail_layers["trails_named"].setLabeling(QgsVectorLayerSimpleLabeling(ls))
 
-for l in (assets, places) + tuple(trail_layers.values()) + (roads, lwater, awater, walk, gap, tracts, schools_d, bgs, parish):
+extra = []
+if rail is not None:
+    rail.renderer().setSymbol(QgsLineSymbol.createSimple({"color": "#000000", "width": "1.1", "line_style": "dash"}))
+    levee.renderer().setSymbol(QgsLineSymbol.createSimple({"color": "#8c510a", "width": "0.9"}))
+    style_fill(rail_buf, "#1f78b4", "#1f78b4", 0.2, 0.15)
+    extra = [rail, levee, rail_buf]
+for l in (assets, places) + tuple(trail_layers.values()) + tuple(extra) + (roads, lwater, awater, walk, gap, tracts, schools_d, bgs, parish):
     proj.addMapLayer(l)
 for hidden in (bgs, schools_d):
     proj.layerTreeRoot().findLayer(hidden.id()).setItemVisibilityChecked(False)
@@ -249,7 +295,7 @@ proj.addMapLayer(osm_l)
 proj.write(os.path.join(ROOT, "east_carroll_parks.qgz"))
 
 ms = QgsMapSettings()
-ms.setLayers([assets, places] + list(trail_layers.values()) + [roads, awater, walk, gap, tracts, parish])
+ms.setLayers([assets, places] + list(trail_layers.values()) + extra + [roads, awater, walk, gap, tracts, parish])
 ms.setBackgroundColor(QColor(255, 255, 255))
 ms.setOutputSize(QSize(1600, 2000))
 ms.setDestinationCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
@@ -272,6 +318,12 @@ for name, l in trail_layers.items():
     print(f"{name}: {l.featureCount()} segments, {km:.1f} km inside parish")
 if "trails_named" in trail_layers:
     print(sorted({f["name"] for f in trail_layers["trails_named"].getFeatures()}))
+if rail is not None:
+    print("rail corridors:", rail.featureCount(), "segments,", round(sum(f["length_km"] for f in rail.getFeatures()), 1), "km;",
+          Counter((f["name"], f["railway"]) for f in rail.getFeatures()))
+    print("levees:", levee.featureCount(), "segments,", round(sum(f["length_km"] for f in levee.getFeatures()), 1), "km")
+    served = run("native:extractbylocation", INPUT=bgs, PREDICATE=[0], INTERSECT=rail_buf)
+    print("block groups within 1 mi of rail corridor:", served.featureCount(), "pop", sum((f["population"] or 0) for f in served.getFeatures()))
 for f in tracts.getFeatures():
     print(" tract", f["GEOID"], "pop", f["population"], "poverty%", f["poverty_pct"], "MHI", f["med_hh_income"])
 print(Counter(f["tag"] for f in assets.getFeatures()).most_common(25))
