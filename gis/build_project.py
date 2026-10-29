@@ -12,7 +12,7 @@ from collections import Counter
 
 from qgis.core import *
 from qgis.PyQt.QtCore import QSize, QVariant
-from qgis.PyQt.QtGui import QColor
+from qgis.PyQt.QtGui import QColor, QFont
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(ROOT, "data", "raw")
@@ -262,94 +262,158 @@ proj.setCrs(QgsCoordinateReferenceSystem("EPSG:4269"))
 proj.setTitle("East Carroll Parish Parks & Recreation")
 
 
+# ---------- Styling: calm palette, plain-English names ----------
 def style_fill(l, color, outline="#333333", width=0.3, opacity=1.0):
     s = QgsFillSymbol.createSimple({"color": color, "outline_color": outline, "outline_width": str(width)})
     s.setOpacity(opacity)
     l.renderer().setSymbol(s)
 
 
-def style_line(l, color, width):
-    l.renderer().setSymbol(QgsLineSymbol.createSimple({"color": color, "width": str(width)}))
+def style_line(l, color, width, style="solid"):
+    l.renderer().setSymbol(QgsLineSymbol.createSimple({"color": color, "width": str(width), "line_style": style}))
 
 
-style_fill(parish, "255,255,255,0", "#000000", 0.8)
-POVERTY_BREAKS = [(0, 10, "#fee5d9"), (10, 20, "#fcae91"), (20, 30, "#fb6a4a"), (30, 40, "#de2d26"), (40, 100, "#a50f15")]
+def label(l, field, size=8, color="#222222", italic=False, halo=True, along_line=False):
+    ls = QgsPalLayerSettings()
+    ls.fieldName = field
+    ls.enabled = True
+    if along_line:
+        ls.placement = Qgis.LabelPlacement.Line
+    tf = QgsTextFormat()
+    tf.setSize(size)
+    tf.setColor(QColor(color))
+    f = QFont("Arial")
+    f.setItalic(italic)
+    tf.setFont(f)
+    if halo:
+        buf = tf.buffer()
+        buf.setEnabled(True)
+        buf.setSize(0.8)
+        buf.setColor(QColor("#ffffff"))
+        tf.setBuffer(buf)
+    ls.setFormat(tf)
+    l.setLabelsEnabled(True)
+    l.setLabeling(QgsVectorLayerSimpleLabeling(ls))
+
+
+# Poverty: muted tan-to-brown sequential, same breaks parish and statewide
+POVERTY_BREAKS = [(0, 10, "#fbf6ee"), (10, 20, "#efdfc2"), (20, 30, "#dbbb8a"), (30, 40, "#c0905a"), (40, 100, "#9a6a38")]
 
 
 def poverty_renderer():
     ranges = []
     for lo, hi, col in POVERTY_BREAKS:
-        sym = QgsFillSymbol.createSimple({"color": col, "outline_color": "#777777", "outline_width": "0.15"})
-        label = f"{lo}% to {hi}%" if hi < 100 else f"{lo}% and up"
-        ranges.append(QgsRendererRange(lo, hi, sym, label))
+        sym = QgsFillSymbol.createSimple({"color": col, "outline_color": "#b0a090", "outline_width": "0.15"})
+        lbl = f"{lo} to {hi}% of residents below poverty" if hi < 100 else f"{lo}% or more below poverty"
+        ranges.append(QgsRendererRange(lo, hi, sym, lbl))
     r = QgsGraduatedSymbolRenderer("poverty_pct", ranges)
     r.setClassAttribute("poverty_pct")
     return r
 
 
 tracts.setRenderer(poverty_renderer())
-tracts.setOpacity(0.7)
+tracts.setOpacity(0.6)
 la_tracts.setRenderer(poverty_renderer())
-la_tracts.setOpacity(0.7)
-style_fill(la_parishes, "255,255,255,0", "#333333", 0.5)
-ls = QgsPalLayerSettings()
-ls.fieldName = "NAME"
-ls.enabled = True
-tf = QgsTextFormat()
-tf.setSize(8)
-ls.setFormat(tf)
-la_parishes.setLabelsEnabled(True)
-la_parishes.setLabeling(QgsVectorLayerSimpleLabeling(ls))
-style_fill(gap, "255,200,0,0", "#ff9900", 1.0)
-style_fill(walk, "#3cb371", "#2e8b57", 0.4, 0.45)
-style_fill(awater, "#a6cee3", "#6baed6", 0.1)
-style_line(lwater, "#6baed6", 0.3)
-style_line(roads, "#999999", 0.25)
-style_fill(places, "255,255,255,0", "#6a3d9a", 0.6)
-colors = {"park": "#33a02c", "playground": "#b2df8a", "pitch": "#1f78b4", "sports_centre": "#1f78b4",
-          "school": "#ff7f00", "community_centre": "#e31a1c", "library": "#e31a1c", "slipway": "#000080",
-          "camp_site": "#6a3d9a", "picnic_site": "#6a3d9a", "attraction": "#fb9a99", "museum": "#fb9a99",
-          "protected_area": "#006d2c"}
-cats = [QgsRendererCategory(tag, QgsMarkerSymbol.createSimple({"color": c, "outline_color": "#000000", "size": "2.6"}), tag)
-        for tag, c in colors.items()]
-cats.append(QgsRendererCategory("", QgsMarkerSymbol.createSimple({"color": "#aaaaaa", "size": "1.8"}), "other"))
-assets.setRenderer(QgsCategorizedSymbolRenderer("tag", cats))
-for lyr, field, size in ((places, "NAME", 9), (assets, "name", 7)):
-    ls = QgsPalLayerSettings()
-    ls.fieldName = field
-    ls.enabled = True
-    tf = QgsTextFormat()
-    tf.setSize(size)
-    ls.setFormat(tf)
-    lyr.setLabelsEnabled(True)
-    lyr.setLabeling(QgsVectorLayerSimpleLabeling(ls))
+la_tracts.setOpacity(0.6)
+style_fill(parish, "255,255,255,0", "#222222", 0.9)
+style_fill(la_parishes, "255,255,255,0", "#555555", 0.4)
+label(la_parishes, "NAME", 8, "#444444")
+style_fill(places, "255,255,255,0", "#5b6b8c", 0.7)
+label(places, "NAME", 10, "#2c3e50")
+style_fill(awater, "#cfe3f2", "#9fc3de", 0.1)
+style_line(lwater, "#9fc3de", 0.25)
+style_line(roads, "#c8c8c8", 0.2)
+style_fill(walk, "#9fd8a8", "#4c9e5c", 0.3, 0.5)
+style_fill(gap, "255,255,255,0", "#d98e04", 0.9)
+style_fill(rail_buf if rail is not None else walk, "#dde7f0", "#dde7f0", 0.0, 0.5)
 
-trail_style = {"trails_named": ("#d7191c", 0.9), "trails_paths": ("#fdae61", 0.5), "trails_tracks": ("#888888", 0.3)}
-for name, (col, w) in trail_style.items():
-    if name in trail_layers:
-        style_line(trail_layers[name], col, w)
+# Assets: collapse OSM tags into a handful of readable classes
+ASSET_CLASS = {
+    "park": ("Park or playground", "#2e8b57", "circle", 3.0),
+    "playground": ("Park or playground", "#2e8b57", "circle", 3.0),
+    "pitch": ("Ball field, court or pool", "#3b6fb6", "square", 2.6),
+    "sports_centre": ("Ball field, court or pool", "#3b6fb6", "square", 2.6),
+    "swimming_pool": ("Ball field, court or pool", "#3b6fb6", "square", 2.6),
+    "track": ("Ball field, court or pool", "#3b6fb6", "square", 2.6),
+    "school": ("School", "#e08a1e", "triangle", 3.0),
+    "library": ("Library or community center", "#8e5ea2", "diamond", 3.0),
+    "community_centre": ("Library or community center", "#8e5ea2", "diamond", 3.0),
+    "slipway": ("Boat ramp", "#1f3f73", "pentagon", 3.0),
+    "museum": ("Museum or historic site", "#b5651d", "star", 3.2),
+    "farm": ("Museum or historic site", "#b5651d", "star", 3.2),
+    "attraction": ("Museum or historic site", "#b5651d", "star", 3.2),
+    "camp_site": ("Camp or picnic site", "#6b8e23", "circle", 2.6),
+    "picnic_site": ("Camp or picnic site", "#6b8e23", "circle", 2.6),
+    "nature_reserve": ("Wildlife management area", "#1b5e20", "hexagon", 3.4),
+    "protected_area": ("Wildlife management area", "#1b5e20", "hexagon", 3.4),
+    "water": ("Named lake or bayou", "#6fa8d6", "circle", 2.0),
+}
+assets.dataProvider().addAttributes([QgsField("asset_class", QVariant.String)])
+assets.updateFields()
+assets.startEditing()
+ci = assets.fields().indexOf("asset_class")
+for f in assets.getFeatures():
+    assets.changeAttributeValue(f.id(), ci, ASSET_CLASS.get(f["tag"], ("Other", "", "", 0))[0])
+assets.commitChanges()
+cats, seen = [], set()
+for tag, (cls, col, shape, size) in ASSET_CLASS.items():
+    if cls in seen:
+        continue
+    seen.add(cls)
+    sym = QgsMarkerSymbol.createSimple({"color": col, "outline_color": "#ffffff", "outline_width": "0.4",
+                                        "name": shape, "size": str(size)})
+    cats.append(QgsRendererCategory(cls, sym, cls))
+cats.append(QgsRendererCategory("Other", QgsMarkerSymbol.createSimple({"color": "#b0b0b0", "outline_color": "#ffffff", "size": "2.0"}), "Other"))
+assets.setRenderer(QgsCategorizedSymbolRenderer("asset_class", cats))
+label(assets, "name", 7, "#333333")
+
+# Trails and corridors
 if "trails_named" in trail_layers:
-    ls = QgsPalLayerSettings()
-    ls.fieldName = "name"
-    ls.enabled = True
-    ls.placement = Qgis.LabelPlacement.Line
-    tf = QgsTextFormat()
-    tf.setSize(7)
-    ls.setFormat(tf)
-    trail_layers["trails_named"].setLabelsEnabled(True)
-    trail_layers["trails_named"].setLabeling(QgsVectorLayerSimpleLabeling(ls))
-
+    style_line(trail_layers["trails_named"], "#c0392b", 1.0)
+    label(trail_layers["trails_named"], "name", 7, "#8e2b1f", along_line=True)
+if "trails_paths" in trail_layers:
+    style_line(trail_layers["trails_paths"], "#e67e22", 0.6)
+if "trails_tracks" in trail_layers:
+    style_line(trail_layers["trails_tracks"], "#b8b8a8", 0.3, "dot")
 extra = []
 if rail is not None:
-    rail.renderer().setSymbol(QgsLineSymbol.createSimple({"color": "#000000", "width": "1.1", "line_style": "dash"}))
-    levee.renderer().setSymbol(QgsLineSymbol.createSimple({"color": "#8c510a", "width": "0.9"}))
-    style_fill(rail_buf, "#1f78b4", "#1f78b4", 0.2, 0.15)
+    style_line(rail, "#2b2b2b", 1.2, "dash")
+    style_line(levee, "#7f5f2a", 1.0)
     extra = [rail, levee, rail_buf]
+
+# Legend / layer-panel names
+NAMES = [
+    (assets, "Parks, fields, schools and other sites"),
+    (places, "Lake Providence town limits"),
+    (parish, "East Carroll Parish boundary"),
+    (tracts, "Poverty rate by census tract (ACS 2023)"),
+    (la_tracts, "Louisiana tracts: poverty rate (ACS 2023)"),
+    (la_parishes, "Louisiana parish boundaries"),
+    (walk, "Within a half mile of a park or field"),
+    (gap, "Block group with no park within a half mile"),
+    (awater, "Lakes and rivers"),
+    (lwater, "Streams and bayous"),
+    (roads, "Roads"),
+    (bgs, "Census block groups (ACS 2023)"),
+    (schools_d, "School district"),
+]
+if trail_layers:
+    NAMES += [(trail_layers.get("trails_named"), "Named trails and tracks"),
+              (trail_layers.get("trails_paths"), "Paths and sidewalks"),
+              (trail_layers.get("trails_tracks"), "Farm and levee tracks (unnamed)")]
+if rail is not None:
+    NAMES += [(rail, "Rail corridor (out of service)"), (levee, "Mississippi River levee"),
+              (rail_buf, "Within one mile of the rail corridor")]
+for lyr, nm in NAMES:
+    if lyr is not None:
+        lyr.setName(nm)
 root = proj.layerTreeRoot()
 for l in (assets, places) + tuple(trail_layers.values()) + tuple(extra) + (roads, lwater, awater, walk, gap, tracts, schools_d, bgs, parish):
     proj.addMapLayer(l, False)
     root.addLayer(l)          # appended in order, so the first added draws on top
-for hidden in (bgs, schools_d):
+for hidden in (bgs, schools_d, trail_layers.get("trails_tracks")):
+    if hidden is None:
+        continue
     root.findLayer(hidden.id()).setItemVisibilityChecked(False)
 la_group = root.addGroup("Louisiana statewide (toggle)")
 for l in (la_parishes, la_tracts):
@@ -365,6 +429,82 @@ ext0 = parish.extent()
 ext0.scale(1.05)
 view.setDefaultViewExtent(QgsReferencedRectangle(ext0, parish.crs()))
 view.setPresetFullExtent(QgsReferencedRectangle(ext0, parish.crs()))
+# ---- Print layout with legend (Project > Layouts > "East Carroll Parks Map") ----
+from qgis.core import (QgsPrintLayout, QgsLayoutItemMap, QgsLayoutItemLegend, QgsLayoutItemLabel,
+                       QgsLayoutItemScaleBar, QgsLayoutItemPicture, QgsLayoutPoint, QgsLayoutSize,
+                       QgsUnitTypes, QgsLayoutExporter, QgsLayerTree)
+layout = QgsPrintLayout(proj)
+layout.initializeDefaults()
+layout.setName("East Carroll Parks Map")
+page = layout.pageCollection().page(0)
+page.setPageSize("Letter", QgsLayoutItemPage.Orientation.Portrait)
+
+title = QgsLayoutItemLabel(layout)
+title.setText("East Carroll Parish Parks & Recreation: Assets, Trails, and Need")
+title.setFont(QFont("Arial", 16, QFont.Bold))
+title.attemptMove(QgsLayoutPoint(10, 8, QgsUnitTypes.LayoutMillimeters))
+title.attemptResize(QgsLayoutSize(196, 10, QgsUnitTypes.LayoutMillimeters))
+layout.addLayoutItem(title)
+
+lmap = QgsLayoutItemMap(layout)
+lmap.attemptMove(QgsLayoutPoint(10, 20, QgsUnitTypes.LayoutMillimeters))
+lmap.attemptResize(QgsLayoutSize(135, 240, QgsUnitTypes.LayoutMillimeters))
+lmap.setCrs(parish.crs())
+lmap.setLayers([assets, places] + list(trail_layers.values()) + extra + [roads, awater, walk, gap, tracts, parish])
+lmap.setExtent(ext0)
+lmap.setFrameEnabled(True)
+layout.addLayoutItem(lmap)
+
+legend = QgsLayoutItemLegend(layout)
+legend.setTitle("Legend")
+legend.setLinkedMap(lmap)
+legend.setAutoUpdateModel(False)
+lt = QgsLayerTree()
+for l in [assets] + list(trail_layers.values()) + extra + [walk, gap, tracts, awater, places, parish]:
+    lt.addLayer(l)
+legend.model().setRootGroup(lt)
+legend.setStyleFont(QgsLegendStyle.Title, QFont("Arial", 11, QFont.Bold))
+legend.setStyleFont(QgsLegendStyle.Subgroup, QFont("Arial", 8, QFont.Bold))
+legend.setStyleFont(QgsLegendStyle.SymbolLabel, QFont("Arial", 7))
+legend.setSymbolHeight(3)
+legend.setSymbolWidth(5)
+legend.attemptMove(QgsLayoutPoint(150, 20, QgsUnitTypes.LayoutMillimeters))
+legend.attemptResize(QgsLayoutSize(56, 200, QgsUnitTypes.LayoutMillimeters))
+legend.setFrameEnabled(True)
+layout.addLayoutItem(legend)
+
+sb = QgsLayoutItemScaleBar(layout)
+sb.setLinkedMap(lmap)
+sb.applyDefaultSettings()
+sb.setUnits(QgsUnitTypes.DistanceMiles)
+sb.setUnitLabel("mi")
+sb.setUnitsPerSegment(2)
+sb.setNumberOfSegments(3)
+sb.setNumberOfSegmentsLeft(0)
+sb.attemptMove(QgsLayoutPoint(12, 250, QgsUnitTypes.LayoutMillimeters))
+layout.addLayoutItem(sb)
+
+north = QgsLayoutItemPicture(layout)
+north.setPicturePath(r"C:\OSGeo4W\apps\qgis-ltr\svg\arrows\NorthArrow_02.svg")
+north.attemptMove(QgsLayoutPoint(132, 24, QgsUnitTypes.LayoutMillimeters))
+north.attemptResize(QgsLayoutSize(10, 14, QgsUnitTypes.LayoutMillimeters))
+layout.addLayoutItem(north)
+
+credit = QgsLayoutItemLabel(layout)
+credit.setText("Sources: Census TIGER 2024, ACS 2023 5-yr (tract poverty), OpenStreetMap (assets, trails, rail, levees). "
+               "Built with QGIS. github.com/wbp318/East-Carroll-Parks-and-Rec")
+credit.setFont(QFont("Arial", 7))
+credit.attemptMove(QgsLayoutPoint(10, 263, QgsUnitTypes.LayoutMillimeters))
+credit.attemptResize(QgsLayoutSize(196, 8, QgsUnitTypes.LayoutMillimeters))
+layout.addLayoutItem(credit)
+
+proj.layoutManager().addLayout(layout)
+exp = QgsLayoutExporter(layout)
+exp.exportToPdf(os.path.join(ROOT, "east_carroll_parks_map.pdf"), QgsLayoutExporter.PdfExportSettings())
+png_settings = QgsLayoutExporter.ImageExportSettings()
+png_settings.dpi = 150
+exp.exportToImage(os.path.join(ROOT, "east_carroll_parks_map.png"), png_settings)
+
 proj.write(os.path.join(ROOT, "east_carroll_parks.qgz"))
 
 ms = QgsMapSettings()

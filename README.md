@@ -9,6 +9,8 @@ Working repository for standing up a parks and recreation program in East Carrol
 | `docs/FUNDING_ROADMAP.md` | Step-by-step plan: entity setup, priority grant programs, GIS funding, 12-month calendar, sources |
 | `docs/TRAILS_PLAN.md` | Hiking, biking, levee, and rail-trail corridors ranked, with legal status of the Lake Providence rail line and trail-specific funding |
 | `docs/QGIS_PLATFORM_PLAN.md` | Plan for QGIS plugins and open-source servers that reach ArcGIS parity, and the grants that can pay for it |
+| `docs/ARCHITECTURE.md` | Mermaid diagrams: data pipeline, build script logic, layer stack, funding map, rail decision tree, 12-month Gantt |
+| `gis/east_carroll_parks_map.pdf` | Letter-size map with legend, scale bar, and north arrow, from the saved print layout |
 | `grants/grant_tracker.csv` | One row per program with deadline, match, contact, and status. Update `status` as applications move |
 | `gis/east_carroll_parks.qgz` | QGIS project (open with QGIS 3.x LTR) |
 | `gis/data/processed/east_carroll.gpkg` | GeoPackage with all layers below |

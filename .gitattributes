@@ -1,0 +1,53 @@
+# Line endings: normalize text, keep binaries untouched
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# ---- Make GitHub count every language in the repo (linguist) ----
+# By default GitHub hides documentation and data from the language bar.
+# These overrides force each file type to be detected and counted.
+*.md          linguist-detectable=true linguist-documentation=false linguist-language=Markdown
+*.py          linguist-detectable=true linguist-language=Python
+*.js          linguist-detectable=true linguist-language=JavaScript
+*.ts          linguist-detectable=true linguist-language=TypeScript
+*.sql         linguist-detectable=true linguist-language=SQL
+*.sh          linguist-detectable=true linguist-language=Shell
+*.bat         linguist-detectable=true linguist-language=Batchfile
+*.ps1         linguist-detectable=true linguist-language=PowerShell
+*.csv         linguist-detectable=true linguist-language=CSV
+*.json        linguist-detectable=true linguist-language=JSON
+*.geojson     linguist-detectable=true linguist-language=JSON
+*.yml         linguist-detectable=true linguist-language=YAML
+*.yaml        linguist-detectable=true linguist-language=YAML
+*.toml        linguist-detectable=true linguist-language=TOML
+*.html        linguist-detectable=true linguist-language=HTML
+*.css         linguist-detectable=true linguist-language=CSS
+*.xml         linguist-detectable=true linguist-language=XML
+*.qgs         linguist-detectable=true linguist-language=XML
+*.qml         linguist-detectable=true linguist-language=XML
+*.qlr         linguist-detectable=true linguist-language=XML
+*.svg         linguist-detectable=true linguist-language=SVG
+*.txt         linguist-detectable=true linguist-language=Text
+*.gitattributes linguist-detectable=true linguist-language=Git-Attributes
+*.gitignore   linguist-detectable=true linguist-language=Ignore-List
+docs/**       linguist-documentation=false
+README.md     linguist-documentation=false
+
+# ---- Binary and generated files ----
+*.gpkg  binary
+*.qgz   binary
+*.zip   binary
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.shp   binary
+*.shx   binary
+*.dbf   binary
+*.prj   text
+*.cpg   text
+*.dat   binary linguist-generated=true
+gis/data/processed/**  linguist-generated=true
+
+# ---- Diff helpers ----
+*.csv  diff
+*.json diff
