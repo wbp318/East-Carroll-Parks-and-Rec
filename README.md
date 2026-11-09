@@ -12,6 +12,7 @@ Working repository for standing up a parks and recreation program in East Carrol
 | `docs/ONE_PAGER.pdf` | One-page handout for the Police Jury meeting (built by `scripts/build_one_pager.py`) |
 | `docs/POLICE_JURY_PLAN.md` | Organizing parks and trails as a Police Jury division: juror roster and who to talk to first, the one-page pitch, and road and bridge funding the Jury can pursue alongside |
 | `docs/CLERK_AND_PARISH_FUNDING.md` | Clerk of Court funding, new Police Jury technology and water/drainage programs, money already moving in the parish, and a path to a grant-funded parish coordinator position |
+| `docs/CLERK_FUNDING_OPTIONS.md` / `.pdf` | Briefing for the Clerk of Court: every grant, state program, Police Jury duty, free service, and earned-revenue option for the office; audit and non-compliance status check; calendar. PDF built by `scripts/build_clerk_funding_pdf.py` (needs `mmdc`) |
 | `docs/CLERK_WEBSITE_ASSESSMENT.md` | Why the Clerk of Court's site (`eastcarrollclerk.com`) shows as down, and the fix plan |
 | `clerk-site/` | Draft replacement site for the Clerk of Court, plain HTML; open `clerk-site/index.html`. Review checklist and launch steps in `clerk-site/README.md` |
 | `docs/ARCHITECTURE.md` | Mermaid diagrams: data pipeline, build script logic, layer stack, funding map, rail decision tree, 12-month Gantt |
